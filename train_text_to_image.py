@@ -60,8 +60,11 @@ check_min_version("0.28.0.dev0")
 
 logger = get_logger(__name__, log_level="INFO")
 
+# NOTE- This does not need to be defined.
+# The fallback mechanism is to always have ['image','id','text'] columns for text-to-image tasks.
+# Farsi poetry data.
 DATASET_NAME_MAPPING = {
-    "lambdalabs/pokemon-blip-captions": ("image", "text"),
+    "sadrasabouri/ShahNegar": ("image", "id", "text"),
 }
 
 
