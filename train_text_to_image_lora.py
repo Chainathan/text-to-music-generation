@@ -50,6 +50,8 @@ from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_
 from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
 
+import librosa
+from PIL import Image
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.28.0.dev0")
@@ -610,9 +612,9 @@ def main():
     # Preprocessing the datasets.
     train_transforms = transforms.Compose(
         [
-            transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR),
-            transforms.CenterCrop(args.resolution) if args.center_crop else transforms.RandomCrop(args.resolution),
-            transforms.RandomHorizontalFlip() if args.random_flip else transforms.Lambda(lambda x: x),
+            # transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR),
+            # transforms.CenterCrop(args.resolution) if args.center_crop else transforms.RandomCrop(args.resolution),
+            # transforms.RandomHorizontalFlip() if args.random_flip else transforms.Lambda(lambda x: x),
             transforms.ToTensor(),
             transforms.Normalize([0.5], [0.5]),
         ]
@@ -628,6 +630,39 @@ def main():
         examples["pixel_values"] = [train_transforms(image) for image in images]
         examples["input_ids"] = tokenize_captions(examples)
         return examples
+
+    def audio_to_spectrogram(audio_path, duration=5, sr=22050, n_fft=2048, hop_length=512, img_size=(256, 256)):
+        # TODO change the full clip length size to match music caps dataset
+        # Load the audio file to get its total duration
+        y_full, _ = librosa.load(audio_path, sr=sr)
+        total_duration = librosa.get_duration(y=y_full, sr=sr)
+        
+        # Ensure the total duration is longer than the desired clip duration
+        if total_duration > duration:
+            # Choose a random start time for audio clipping
+            start_time = np.random.uniform(0, total_duration - duration)
+        else:
+            # If the audio is shorter than the desired duration, start at the beginning
+            start_time = 0
+
+        # Load the audio file
+        y, _ = librosa.load(audio_path, sr=sr, offset=start_time, duration=duration)
+    
+        # Proceed with STFT, converting to dB scale, normalization, and image conversion as before
+        S = librosa.stft(y, n_fft=n_fft, hop_length=hop_length)
+        S_DB = librosa.amplitude_to_db(np.abs(S), ref=np.max)
+        S_DB_norm = (S_DB - S_DB.min()) / (S_DB.max() - S_DB.min()) * 255.0
+        S_DB_img = S_DB_norm.astype(np.uint8)
+        img = Image.fromarray(S_DB_img).resize(img_size)
+        return img
+
+    def preprocess_train_dup(examples):
+        images = [audio_to_spectrogram(audio_path) for audio_path in examples["audio_column"]] # TODO change audio_column to the column name in the dataset
+        examples["pixel_values"] = [train_transforms(image) for image in images]
+        # Assuming `tokenize_captions` processes caption text as before
+        examples["input_ids"] = tokenize_captions(examples)
+        return examples
+
 
     with accelerator.main_process_first():
         if args.max_train_samples is not None:
