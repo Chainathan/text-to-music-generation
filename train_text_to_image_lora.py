@@ -393,6 +393,7 @@ DATASET_NAME_MAPPING = {
 
 
 def main():
+
     args = parse_args()
     if args.report_to == "wandb" and args.hub_token is not None:
         raise ValueError(
@@ -626,43 +627,19 @@ def main():
         return model
 
     def preprocess_train(examples):
-        images = [image.convert("RGB") for image in examples[image_column]]
+        images = [slice_random_256x256(image).convert("RGB") for image in examples[image_column]]
         examples["pixel_values"] = [train_transforms(image) for image in images]
         examples["input_ids"] = tokenize_captions(examples)
         return examples
 
-    def audio_to_spectrogram(audio_path, duration=5, sr=22050, n_fft=2048, hop_length=512, img_size=(256, 256)):
-        # TODO change the full clip length size to match music caps dataset
-        # Load the audio file to get its total duration
-        y_full, _ = librosa.load(audio_path, sr=sr)
-        total_duration = librosa.get_duration(y=y_full, sr=sr)
-        
-        # Ensure the total duration is longer than the desired clip duration
-        if total_duration > duration:
-            # Choose a random start time for audio clipping
-            start_time = np.random.uniform(0, total_duration - duration)
-        else:
-            # If the audio is shorter than the desired duration, start at the beginning
-            start_time = 0
-
-        # Load the audio file
-        y, _ = librosa.load(audio_path, sr=sr, offset=start_time, duration=duration)
-    
-        # Proceed with STFT, converting to dB scale, normalization, and image conversion as before
-        S = librosa.stft(y, n_fft=n_fft, hop_length=hop_length)
-        S_DB = librosa.amplitude_to_db(np.abs(S), ref=np.max)
-        S_DB_norm = (S_DB - S_DB.min()) / (S_DB.max() - S_DB.min()) * 255.0
-        S_DB_img = S_DB_norm.astype(np.uint8)
-        img = Image.fromarray(S_DB_img).resize(img_size)
-        return img
-
-    def preprocess_train_dup(examples):
-        images = [audio_to_spectrogram(audio_path) for audio_path in examples["audio_column"]] # TODO change audio_column to the column name in the dataset
-        examples["pixel_values"] = [train_transforms(image) for image in images]
-        # Assuming `tokenize_captions` processes caption text as before
-        examples["input_ids"] = tokenize_captions(examples)
-        return examples
-
+    def slice_random_256x256(img):
+        if img.width <= 256:
+            raise ValueError("Image width must be greater than 256 pixels.")
+        max_x_start = img.width - 256
+        random_x_start = random.randint(0, max_x_start)
+        y_start = 0
+        cropped_img = img.crop((random_x_start, y_start, random_x_start + 256, y_start + 256))
+        return cropped_img
 
     with accelerator.main_process_first():
         if args.max_train_samples is not None:
