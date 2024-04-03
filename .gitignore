@@ -1,7 +1,8 @@
 base-music-model/
 # Sai used this for his local large dataset
 raw dataset/
-# Will use this for the large dataset. Right now checking in small 10 image datasets.
+# Will use this for the large dataset.
+# Right now checking in small 10 image datasets names Dataset-SingleChannel and Dataset-3Channel
 Dataset/
 dummy/
 wandb/
