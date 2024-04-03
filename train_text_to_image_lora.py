@@ -50,9 +50,6 @@ from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_
 from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
 
-import librosa
-from PIL import Image
-
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.28.0.dev0")
 
@@ -508,6 +505,12 @@ def main():
             raise ValueError("xformers is not available. Make sure it is installed correctly")
 
     lora_layers = filter(lambda p: p.requires_grad, unet.parameters())
+
+
+    # BRIJESH: Print trainable params comparison for given Lora rank
+    # post_lora_layers = filter(lambda p: p.requires_grad, unet.parameters())
+    # unet_params = sum([np.prod(p.size()) for p in post_lora_layers])
+    # print(f"Lora params: {unet_params}")
 
     if args.gradient_checkpointing:
         unet.enable_gradient_checkpointing()
@@ -982,7 +985,6 @@ def main():
                         )
 
     accelerator.end_training()
-
 
 if __name__ == "__main__":
     main()
