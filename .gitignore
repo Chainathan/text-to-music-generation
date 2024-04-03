@@ -8,6 +8,11 @@ dataset/
 dummy/
 wandb/
 diffusers-env/
+
+# Model logs and checkpoints
+sd-model-finetuned-lora/
+text-to-music-sd
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -177,3 +182,4 @@ cython_debug/
 /.idea/inspectionProfiles/Project_Default.xml
 /.idea/text-to-music-generation.iml
 /.idea/vcs.xml
+.vscode/extensions.json
