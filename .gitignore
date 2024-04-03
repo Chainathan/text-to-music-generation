@@ -1,5 +1,8 @@
 base-music-model/
+# Sai used this for his local large dataset
 raw dataset/
+# Will use this for the large dataset. Right now checking in small 10 image datasets.
+Dataset/
 dummy/
 wandb/
 diffusers-env/
@@ -162,7 +165,7 @@ cython_debug/
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
+.idea/
 /.vscode/launch.json
 /.idea/.gitignore
 /Dataset/metadata.csv

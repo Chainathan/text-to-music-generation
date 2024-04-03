@@ -388,7 +388,7 @@ def parse_args():
 
 
 DATASET_NAME_MAPPING = {
-    "sadrasabouri/ShahNegar": ("image", "id", "text"),
+    "Dataset-3Channel": ("file_name", "text"),
 }
 
 
