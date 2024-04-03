@@ -50,6 +50,8 @@ from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_
 from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
 
+import librosa
+from PIL import Image
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.28.0.dev0")
@@ -391,6 +393,7 @@ DATASET_NAME_MAPPING = {
 
 
 def main():
+
     args = parse_args()
     if args.report_to == "wandb" and args.hub_token is not None:
         raise ValueError(
@@ -610,9 +613,9 @@ def main():
     # Preprocessing the datasets.
     train_transforms = transforms.Compose(
         [
-            transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR),
-            transforms.CenterCrop(args.resolution) if args.center_crop else transforms.RandomCrop(args.resolution),
-            transforms.RandomHorizontalFlip() if args.random_flip else transforms.Lambda(lambda x: x),
+            # transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR),
+            # transforms.CenterCrop(args.resolution) if args.center_crop else transforms.RandomCrop(args.resolution),
+            # transforms.RandomHorizontalFlip() if args.random_flip else transforms.Lambda(lambda x: x),
             transforms.ToTensor(),
             transforms.Normalize([0.5], [0.5]),
         ]
@@ -624,10 +627,19 @@ def main():
         return model
 
     def preprocess_train(examples):
-        images = [image.convert("RGB") for image in examples[image_column]]
+        images = [slice_random_256x256(image).convert("RGB") for image in examples[image_column]]
         examples["pixel_values"] = [train_transforms(image) for image in images]
         examples["input_ids"] = tokenize_captions(examples)
         return examples
+
+    def slice_random_256x256(img):
+        if img.width <= 256:
+            raise ValueError("Image width must be greater than 256 pixels.")
+        max_x_start = img.width - 256
+        random_x_start = random.randint(0, max_x_start)
+        y_start = 0
+        cropped_img = img.crop((random_x_start, y_start, random_x_start + 256, y_start + 256))
+        return cropped_img
 
     with accelerator.main_process_first():
         if args.max_train_samples is not None:

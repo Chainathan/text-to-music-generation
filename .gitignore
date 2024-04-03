@@ -1,3 +1,5 @@
+base-music-model/
+raw dataset/
 dummy/
 wandb/
 diffusers-env/
