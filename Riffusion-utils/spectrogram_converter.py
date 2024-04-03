@@ -5,8 +5,8 @@ import pydub
 import torch
 import torchaudio
 
-from utils.spectrogram_params import SpectrogramParams
-from utils import audio_util, torch_util
+from spectrogram_params import SpectrogramParams
+import audio_util, torch_util
 
 
 class SpectrogramConverter:
