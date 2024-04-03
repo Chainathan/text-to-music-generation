@@ -4,6 +4,7 @@ raw dataset/
 # Will use this for the large dataset.
 # Right now checking in small 10 image datasets names Dataset-SingleChannel and Dataset-3Channel
 Dataset/
+dataset/
 dummy/
 wandb/
 diffusers-env/
