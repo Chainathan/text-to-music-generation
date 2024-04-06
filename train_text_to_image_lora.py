@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Fine-tuning script for Stable Diffusion for text2image with support for LoRA."""
-
+from huggingface_hub import HfApi, HfFolder, hf_hub_download
 import argparse
 import logging
 import math
@@ -396,6 +396,11 @@ def main():
             "You cannot use both --report_to=wandb and --hub_token due to a security risk of exposing your token."
             " Please use `huggingface-cli login` to authenticate with the Hub."
         )
+    if args.push_to_hub:
+        # Validate huggingface token
+        folder = HfFolder()
+        folder.save_token(args.hub_token)
+        api = HfApi()
 
     logging_dir = Path(args.output_dir, args.logging_dir)
 
@@ -719,6 +724,13 @@ def main():
             dirs = sorted(dirs, key=lambda x: int(x.split("-")[1]))
             path = dirs[-1] if len(dirs) > 0 else None
 
+            # # Get the most recent checkpoint form huggingface hub
+            # dirs = [d.path for d in api.list_files_info(repo_id=args.hub_model_id) if d.path.find("checkpoint-") != -1]
+            # # Split on /, take outermost folder [0]. Split on -, take rightmost numeric value[1].
+            # dirs = sorted(dirs, key=lambda x: int(x.split("/")[0].split("-")[1]))
+            # # For the largest key dirs[-1], get the outermost folder of the value[0].
+            # path = dirs[-1].split("/")[0] if len(dirs) > 0 else None
+
         if path is None:
             accelerator.print(
                 f"Checkpoint '{args.resume_from_checkpoint}' does not exist. Starting a new training run."
@@ -727,6 +739,20 @@ def main():
             initial_global_step = 0
         else:
             accelerator.print(f"Resuming from checkpoint {path}")
+            # # For checkpoint download. Filter only latest epoch files
+            # files = [d for d in dirs if d.startswith(path)]
+            # downloaded_files = []
+            # for file in files:
+            #     download_path = hf_hub_download(
+            #         repo_id=args.hub_model_id,
+            #         filename=file,
+            #         force_download=True,
+            #         force_filename=file
+            #     )
+            #     downloaded_files.append(download_path)
+            # checkpoint_path = os.path.split(downloaded_files[0])[0] # Take dir of first downloaded file
+            # accelerator.load_state(checkpoint_path)
+
             accelerator.load_state(os.path.join(args.output_dir, path))
             global_step = int(path.split("-")[1])
 
@@ -867,23 +893,21 @@ def main():
                             safe_serialization=True,
                         )
 
-                        # from huggingface_hub import hf_api
-                        # api = hf_api
-                        # # Push checkpoint to hub
-                        # if args.push_to_hub:
-                        #     api.upload_folder(
-                        #         folder_path=save_path,
-                        #         repo_id=args.hub_model_id,
-                        #         path_in_repo=save_path,
-                        #         commit_message=f"Checkpoint-{global_step}"
-                        #     )
-                        #     log_dir = os.path.join(os.path.split(save_path)[0], "logs")
-                        #     api.upload_folder(
-                        #         folder_path=log_dir,
-                        #         repo_id=args.hub_model_id,
-                        #         path_in_repo=log_dir,
-                        #         commit_message=f"Checkpoint-{global_step}-logs"
-                        #     )
+                        # Push checkpoint to hub
+                        if args.push_to_hub:
+                            api.upload_folder(
+                                folder_path=save_path,
+                                repo_id=args.hub_model_id,
+                                path_in_repo=save_path,
+                                commit_message=f"Checkpoint-{global_step}"
+                            )
+                            log_dir = os.path.join(os.path.split(save_path)[0], "logs")
+                            api.upload_folder(
+                                folder_path=log_dir,
+                                repo_id=args.hub_model_id,
+                                path_in_repo=log_dir,
+                                commit_message=f"Checkpoint-{global_step}-logs"
+                            )
 
                         logger.info(f"Saved state to {save_path}")
 
@@ -964,7 +988,7 @@ def main():
                 folder_path=args.output_dir,
                 commit_message="End of training",
                 ignore_patterns=["step_*", "epoch_*"],
-                # path_in_repo=args.output_dir,
+                path_in_repo=args.output_dir,
             )
 
         # Final inference
