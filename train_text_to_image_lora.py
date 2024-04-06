@@ -42,7 +42,7 @@ from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
 import diffusers
-from diffusers import AutoencoderKL, DDPMScheduler, DiffusionPipeline, StableDiffusionPipeline, UNet2DConditionModel
+from diffusers import AutoencoderKL, DDIMScheduler, DiffusionPipeline, StableDiffusionPipeline, UNet2DConditionModel
 from diffusers.optimization import get_scheduler
 from diffusers.training_utils import cast_training_params, compute_snr
 from diffusers.utils import check_min_version, convert_state_dict_to_diffusers, is_wandb_available
@@ -54,7 +54,6 @@ from diffusers.utils.torch_utils import is_compiled_module
 check_min_version("0.28.0.dev0")
 
 logger = get_logger(__name__, log_level="INFO")
-
 
 def save_model_card(
     repo_id: str,
@@ -443,7 +442,7 @@ def main():
                 repo_id=args.hub_model_id or Path(args.output_dir).name, exist_ok=True, token=args.hub_token
             ).repo_id
     # Load scheduler, tokenizer and models.
-    noise_scheduler = DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler")
+    noise_scheduler = DDIMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler")
     tokenizer = CLIPTokenizer.from_pretrained(
         args.pretrained_model_name_or_path, subfolder="tokenizer", revision=args.revision
     )
@@ -850,7 +849,12 @@ def main():
                                     shutil.rmtree(removing_checkpoint)
 
                         save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
+                        # Save models to temp variable
+                        temp = accelerator._models
+                        accelerator._models = []
                         accelerator.save_state(save_path)
+                        # Reassign after save
+                        accelerator._models = temp
 
                         unwrapped_unet = unwrap_model(unet)
                         unet_lora_state_dict = convert_state_dict_to_diffusers(
@@ -985,6 +989,11 @@ def main():
                         )
 
     accelerator.end_training()
+
+# Launcher for kaggle notebook
+# from accelerate import notebook_launcher
+# if __name__ == "__main__":
+#     notebook_launcher(main(), num_processors=2) #num_processors for multi-gpu
 
 if __name__ == "__main__":
     main()

@@ -4,7 +4,7 @@ raw dataset/
 # Will use this for the large dataset.
 # Right now checking in small 10 image datasets names Dataset-SingleChannel and Dataset-3Channel
 Dataset/
-dataset/
+dataset-*/
 dummy/
 wandb/
 diffusers-env/
@@ -178,7 +178,6 @@ cython_debug/
 .idea/
 /.vscode/launch.json
 /.idea/.gitignore
-/Dataset/metadata.csv
 /.idea/misc.xml
 /.idea/modules.xml
 /.idea/inspectionProfiles/profiles_settings.xml
