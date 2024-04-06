@@ -718,18 +718,19 @@ def main():
         if args.resume_from_checkpoint != "latest":
             path = os.path.basename(args.resume_from_checkpoint)
         else:
-            # Get the most recent checkpoint
-            dirs = os.listdir(args.output_dir)
-            dirs = [d for d in dirs if d.startswith("checkpoint")]
-            dirs = sorted(dirs, key=lambda x: int(x.split("-")[1]))
-            path = dirs[-1] if len(dirs) > 0 else None
-
-            # # Get the most recent checkpoint form huggingface hub
-            # dirs = [d.path for d in api.list_files_info(repo_id=args.hub_model_id) if d.path.find("checkpoint-") != -1]
-            # # Split on /, take outermost folder [0]. Split on -, take rightmost numeric value[1].
-            # dirs = sorted(dirs, key=lambda x: int(x.split("/")[0].split("-")[1]))
-            # # For the largest key dirs[-1], get the outermost folder of the value[0].
-            # path = dirs[-1].split("/")[0] if len(dirs) > 0 else None
+            if not args.push_to_hub:
+                # Get the most recent local checkpoint
+                dirs = os.listdir(args.output_dir)
+                dirs = [d for d in dirs if d.startswith("checkpoint")]
+                dirs = sorted(dirs, key=lambda x: int(x.split("-")[1]))
+                path = dirs[-1] if len(dirs) > 0 else None
+            else:
+                # Get the most recent checkpoint form huggingface hub
+                dirs = [d.path for d in api.list_files_info(repo_id=args.hub_model_id) if d.path.find("checkpoint-") != -1]
+                # Split on /, take outermost folder [0]. Split on -, take rightmost numeric value[1].
+                dirs = sorted(dirs, key=lambda x: int(x.split("/")[0].split("-")[1]))
+                # For the largest key dirs[-1], get the outermost folder of the value[0].
+                path = dirs[-1].split("/")[0] if len(dirs) > 0 else None
 
         if path is None:
             accelerator.print(
@@ -739,21 +740,24 @@ def main():
             initial_global_step = 0
         else:
             accelerator.print(f"Resuming from checkpoint {path}")
-            # # For checkpoint download. Filter only latest epoch files
-            # files = [d for d in dirs if d.startswith(path)]
-            # downloaded_files = []
-            # for file in files:
-            #     download_path = hf_hub_download(
-            #         repo_id=args.hub_model_id,
-            #         filename=file,
-            #         force_download=True,
-            #         force_filename=file
-            #     )
-            #     downloaded_files.append(download_path)
-            # checkpoint_path = os.path.split(downloaded_files[0])[0] # Take dir of first downloaded file
-            # accelerator.load_state(checkpoint_path)
+            if not args.push_to_hub:
+                accelerator.load_state(os.path.join(args.output_dir, path))
+            else:
+                # HF download logic.
+                # Filter only latest epoch files
+                files = [d for d in dirs if d.startswith(path)]
+                downloaded_files = []
+                for file in files:
+                    download_path = hf_hub_download(
+                        repo_id=args.hub_model_id,
+                        filename=file,
+                        force_download=True,
+                        force_filename=file
+                    )
+                    downloaded_files.append(download_path)
+                checkpoint_path = os.path.split(downloaded_files[0])[0]  # Take dir of first downloaded file
+                accelerator.load_state(checkpoint_path)
 
-            accelerator.load_state(os.path.join(args.output_dir, path))
             global_step = int(path.split("-")[1])
 
             initial_global_step = global_step
