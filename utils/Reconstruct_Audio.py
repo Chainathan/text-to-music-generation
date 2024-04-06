@@ -17,27 +17,36 @@ def reconstruct_audio_from_spectrograms(source_folder, target_folder, sr=44100, 
 
     audio_segments = []
     # Process each spectrogram image in the source folder
-    for spectrogram_file in glob.glob(os.path.join(source_folder,"*.tiff")):
+    for spectrogram_file in glob.glob(os.path.join(source_folder,"*.png")):
         # spectrogram_path = os.path.join(source_folder, spectrogram_file)
         spectrogram_path = spectrogram_file
 
-        # Load the spectrogram image
-        loaded_image = Image.open(spectrogram_path).convert('L')
+        # Load the RGB spectrogram image
+        loaded_image = Image.open(spectrogram_path)
         loaded_image_array = np.array(loaded_image)
 
-        # Convert pixel values back to Mel spectrogram dB values
-        loaded_mel_spectrogram_db = (loaded_image_array.astype(np.float32) / 255 * 80) - 80
+        # Separate the RGB channels
+        red_channel, green_channel, _ = loaded_image_array.transpose((2, 0, 1))
 
-        # Convert Mel spectrogram back to power spectrogram
-        loaded_mel_spectrogram = librosa.db_to_power(loaded_mel_spectrogram_db)
+        # Convert pixel values back to Mel spectrogram dB values for each channel
+        red_mel_spectrogram_db = (red_channel.astype(np.float32) / 255 * 80) - 80
+        green_mel_spectrogram_db = (green_channel.astype(np.float32) / 255 * 80) - 80
 
-        # Inverse Mel spectrogram to audio
-        snippet_reconstructed = librosa.feature.inverse.mel_to_audio(loaded_mel_spectrogram, sr=sr, n_iter=32)
+        # Convert Mel spectrogram back to power spectrogram for each channel
+        red_mel_spectrogram = librosa.db_to_power(red_mel_spectrogram_db)
+        green_mel_spectrogram = librosa.db_to_power(green_mel_spectrogram_db)
+
+        # Inverse Mel spectrogram to audio for each channel
+        left_channel_audio = librosa.feature.inverse.mel_to_audio(red_mel_spectrogram, sr=sr, n_iter=32)
+        right_channel_audio = librosa.feature.inverse.mel_to_audio(green_mel_spectrogram, sr=sr, n_iter=32)
+
+        # Combine the two channels into a stereo audio file
+        stereo_audio = np.vstack([left_channel_audio, right_channel_audio]).T
 
         # Brijesh: Apply post-processing.
         # Write to the bytes of a temp WAV file. Using scipy.io.wavfile.
         wav_bytes = io.BytesIO()
-        wavfile.write(wav_bytes, sr, snippet_reconstructed)
+        wavfile.write(wav_bytes, sr, stereo_audio)
         wav_bytes.seek(0)
 
         snippet_reconstructed_pydub = pydub.AudioSegment.from_wav(wav_bytes)
@@ -45,19 +54,6 @@ def reconstruct_audio_from_spectrograms(source_folder, target_folder, sr=44100, 
             snippet_reconstructed_pydub,
             compression=False,
         )
-
-        # Save each file
-        # # Save the reconstructed audio snippet
-        # reconstructed_audio_file = f"{os.path.splitext(spectrogram_file)[0]}.wav"
-        # # reconstructed_audio_path = os.path.join(target_folder, reconstructed_audio_file)
-        # reconstructed_audio_path = os.path.join('Data/Reconstructed_Audio', os.path.split(reconstructed_audio_file)[1])
-        # # Raj implementation to save audio. Use soundfile module to write audio
-        # # sf.write(reconstructed_audio_path, snippet_reconstructed, sr)
-        #
-        # # Brijesh implementation to save audio.
-        # sf.write(reconstructed_audio_path, snippet_reconstructed_pydub.get_array_of_samples(), sr)
-        #
-        # print(f"Saved reconstructed audio snippet to: {reconstructed_audio_path}")
 
         # Add to list for stitching
         audio_segments.append(snippet_reconstructed_pydub)
