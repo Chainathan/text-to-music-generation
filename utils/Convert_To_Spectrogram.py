@@ -26,56 +26,59 @@ def generate_padded_spectrograms(source_folder, target_folder):
         # Load the audio file
         y, _ = librosa.load(audio_path, sr=sr)
 
-        # Length of each snippet in samples
-        snippet_length_samples = snippet_length_sec * sr
+        if y.ndim == 2:  # Check if the audio is stereo
+            y_left, y_right = y[0], y[1]
 
-        # Calculate total number of snippets
-        total_snippets = len(y) // snippet_length_samples
+            # Generate Mel spectrogram for each channel
+            S_left = librosa.feature.melspectrogram(y=y_left, sr=sr, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels)
+            S_right = librosa.feature.melspectrogram(y=y_right, sr=sr, n_fft=n_fft, hop_length=hop_length,
+                                                     n_mels=n_mels)
 
-        # Handle the last snippet if there's remaining audio
-        if len(y) % snippet_length_samples != 0:
-            total_snippets += 1
+            # Convert to decibels
+            S_left_db = librosa.power_to_db(S_left, ref=np.max)
+            S_right_db = librosa.power_to_db(S_right, ref=np.max)
 
-        # Create a folder for the current audio clip
-        clip_name = os.path.splitext(audio_file)[0]
-        clip_folder = os.path.join(target_folder, clip_name)
-        if not os.path.exists(clip_folder):
-            os.makedirs(clip_folder)
+            # Normalize
+            S_left_normalized = np.clip((S_left_db + 80) / 80, 0, 1)
+            S_right_normalized = np.clip((S_right_db + 80) / 80, 0, 1)
 
-        # Process each snippet
-        for i in range(total_snippets):
-            # Determine the start and end index of the current snippet
-            start_index = i * snippet_length_samples
-            end_index = min((i + 1) * snippet_length_samples, len(y))
+            # Stack to create a 3-channel image (Left, Right, Right)
+            stereo_image = np.stack([S_left_normalized, S_right_normalized, S_right_normalized], axis=-1)
 
-            # Extract the snippet
-            snippet = y[start_index:end_index]
+            # Convert to an RGB image
+            stereo_image_rgb = np.uint8(stereo_image * 255)
 
-            # Generate Mel spectrogram
-            S = librosa.feature.melspectrogram(y=snippet, sr=sr, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels,
-                                               window='hamming')
+            # Save the image
+            spectrogram_filename = f"{os.path.splitext(audio_file)[0]}.png"
+            spectrogram_path = os.path.join(target_folder, spectrogram_filename)
+            Image.fromarray(stereo_image_rgb).save(spectrogram_path)
 
-            # Add padding to the spectrogram if necessary
-            if S.shape[1] < (snippet_length_samples // hop_length) + 1:
-                pad_width = ((0, 0), (0, (snippet_length_samples // hop_length) + 1 - S.shape[1]))
-                S = np.pad(S, pad_width=pad_width, mode='constant', constant_values=0)
+            print(f"Saved stereo spectrogram to: {spectrogram_path}")
+        else:
+            # Generate Mel spectrogram for each channel
+            S = librosa.feature.melspectrogram(y=y, sr=sr, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels)
 
+            # Convert to decibels
             S_db = librosa.power_to_db(S, ref=np.max)
 
-            # Normalize and convert to an image
-            S_normalized = np.clip((S_db + 80) / 80, 0, 1)
-            mel_image = np.uint8(S_normalized * 255)
+            # Normalize
+            s_normalized = np.clip((S_db + 80) / 80, 0, 1)
 
-            # Save the spectrogram as an image
-            spectrogram_filename = f"{clip_name}_{i}.tiff"
-            # spectrogram_path = os.path.join(clip_folder, spectrogram_filename)
-            spectrogram_path = os.path.join('Data/Spectrogram', os.path.split(spectrogram_filename)[1])
-            Image.fromarray(mel_image).save(spectrogram_path, format='TIFF')
+            # Stack to create a 3-channel image (Mono, Mono, Mono)
+            mono_image = np.stack([s_normalized, s_normalized, s_normalized], axis=-1)
 
-            print(f"Saved padded spectrogram snippet to: {spectrogram_path}")
+            # Convert to an RGB image
+            stereo_image_rgb = np.uint8(mono_image * 255)
+
+            # Save the image
+            spectrogram_filename = f"{os.path.splitext(audio_file)[0]}.png"
+            spectrogram_path = os.path.join(target_folder, spectrogram_filename)
+            Image.fromarray(stereo_image_rgb).save(spectrogram_path)
+
+            print(f"Saved stereo spectrogram to: {spectrogram_path}")
 
 if __name__ == "__main__":
     #  usage
-    source_folder = 'Data/'
-    target_folder = 'Data/Spectrogram'
+    source_folder = 'Dataset/'
+    target_folder = 'Dataset/Spectrogram'
     generate_padded_spectrograms(source_folder, target_folder)
