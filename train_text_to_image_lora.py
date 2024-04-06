@@ -867,6 +867,24 @@ def main():
                             safe_serialization=True,
                         )
 
+                        # from huggingface_hub import hf_api
+                        # api = hf_api
+                        # # Push checkpoint to hub
+                        # if args.push_to_hub:
+                        #     api.upload_folder(
+                        #         folder_path=save_path,
+                        #         repo_id=args.hub_model_id,
+                        #         path_in_repo=save_path,
+                        #         commit_message=f"Checkpoint-{global_step}"
+                        #     )
+                        #     log_dir = os.path.join(os.path.split(save_path)[0], "logs")
+                        #     api.upload_folder(
+                        #         folder_path=log_dir,
+                        #         repo_id=args.hub_model_id,
+                        #         path_in_repo=log_dir,
+                        #         commit_message=f"Checkpoint-{global_step}-logs"
+                        #     )
+
                         logger.info(f"Saved state to {save_path}")
 
             logs = {"step_loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
@@ -946,6 +964,7 @@ def main():
                 folder_path=args.output_dir,
                 commit_message="End of training",
                 ignore_patterns=["step_*", "epoch_*"],
+                # path_in_repo=args.output_dir,
             )
 
         # Final inference
@@ -987,7 +1006,6 @@ def main():
                                 ]
                             }
                         )
-
     accelerator.end_training()
 
 # Launcher for kaggle notebook
