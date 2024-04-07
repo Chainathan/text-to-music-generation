@@ -75,7 +75,7 @@ def generate_padded_spectrograms(source_folder, target_folder):
             spectrogram_path = os.path.join(target_folder, spectrogram_filename)
             Image.fromarray(stereo_image_rgb).save(spectrogram_path)
 
-            print(f"Saved stereo spectrogram to: {spectrogram_path}")
+            print(f"Saved mono spectrogram to: {spectrogram_path}")
 
 if __name__ == "__main__":
     #  usage

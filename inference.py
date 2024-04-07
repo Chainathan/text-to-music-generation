@@ -22,7 +22,7 @@ def generate_images(prompt, model_id="your_model_id_here", num_images=1, guidanc
     pipeline = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(accelerator.device)
 
     # Load fine-tuned unet
-    pipeline.load_lora_weights("sd-model-finetuned-lora-backup/checkpoint-1500")
+    pipeline.load_lora_weights("sd-k80")
 
     images = []
     # with autocast(accelerator.device):
@@ -33,7 +33,7 @@ def generate_images(prompt, model_id="your_model_id_here", num_images=1, guidanc
 
     return images
 if __name__ == '__main__':
-    prompt = "Jazz music"  # Example prompt
+    prompt = "Hard Rock"  # Example prompt
     model_id = "runwayml/stable-diffusion-v1-5"  # Replace with your model's ID or local path
     generated_images = generate_images(prompt, model_id=model_id, num_images=3, guidance_scale=7.5)
 
