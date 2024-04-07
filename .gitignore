@@ -8,6 +8,10 @@ dataset-*/
 dummy/
 wandb/
 diffusers-env/
+temp/
+output/
+Data/
+sd-k80/
 
 # Model logs and checkpoints
 sd-model-finetuned-lora/
