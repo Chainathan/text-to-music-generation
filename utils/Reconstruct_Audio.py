@@ -9,6 +9,54 @@ import typing as T
 from PIL import Image
 from scipy.io import wavfile
 
+# Path to your FFmpeg bin directory
+ffmpeg_bin_path = r'C:\ffmpeg\bin'  # Update this path
+
+# Add FFmpeg to PATH
+os.environ["PATH"] += os.pathsep + ffmpeg_bin_path
+
+def image_to_audio(spectrogram_path=None, spectrogram_img=None, sr=44100, n_fft=2048, hop_length=512, n_mels=256):
+    if spectrogram_path is None and spectrogram_img is None:
+        raise ValueError("Either spectrogram_path or spectrogram_img must be provided")
+    
+    if spectrogram_img is None:
+        # Load the spectrogram image
+        loaded_image = Image.open(spectrogram_path).convert('L')
+    else:
+        loaded_image = spectrogram_img
+        
+    loaded_image_array = np.array(loaded_image)
+
+    # Convert pixel values back to Mel spectrogram dB values
+    loaded_mel_spectrogram_db = (loaded_image_array.astype(np.float32) / 255 * 80) - 80
+
+    # Convert Mel spectrogram back to power spectrogram
+    loaded_mel_spectrogram = librosa.db_to_power(loaded_mel_spectrogram_db)
+
+    # Inverse Mel spectrogram to audio
+    snippet_reconstructed = librosa.feature.inverse.mel_to_audio(loaded_mel_spectrogram, sr=sr, n_iter=32)
+
+    # Brijesh: Apply post-processing.
+    # Write to the bytes of a temp WAV file. Using scipy.io.wavfile.
+    wav_bytes = io.BytesIO()
+    wavfile.write(wav_bytes, sr, snippet_reconstructed)
+    wav_bytes.seek(0)
+
+    snippet_reconstructed_pydub = pydub.AudioSegment.from_wav(wav_bytes)
+    snippet_reconstructed_pydub = apply_filters(
+        snippet_reconstructed_pydub,
+        compression=False,
+    )
+    
+    return snippet_reconstructed_pydub
+
+def reconstruct_single_audio_from_spectrogram(target_path, spectrogram_path=None, spectrogram_img=None, sr=44100, n_fft=2048, hop_length=512, n_mels=256):
+    snippet_reconstructed_pydub = image_to_audio(spectrogram_path=spectrogram_path, 
+                                                 spectrogram_img=spectrogram_img, 
+                                                 sr=sr, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels)
+    # Save the reconstructed audio snippet
+    sf.write(target_path, snippet_reconstructed_pydub.get_array_of_samples(), sr)
+
 # Function to reconstruct audio snippets from spectrogram images in a folder
 def reconstruct_audio_from_spectrograms(source_folder, target_folder, sr=44100, n_fft=2048, hop_length=512, n_mels=256):
     # Create the target folder if it doesn't exist
@@ -17,47 +65,8 @@ def reconstruct_audio_from_spectrograms(source_folder, target_folder, sr=44100, 
 
     audio_segments = []
     # Process each spectrogram image in the source folder
-    for spectrogram_file in glob.glob(os.path.join(source_folder,"*.tiff")):
-        # spectrogram_path = os.path.join(source_folder, spectrogram_file)
-        spectrogram_path = spectrogram_file
-
-        # Load the spectrogram image
-        loaded_image = Image.open(spectrogram_path).convert('L')
-        loaded_image_array = np.array(loaded_image)
-
-        # Convert pixel values back to Mel spectrogram dB values
-        loaded_mel_spectrogram_db = (loaded_image_array.astype(np.float32) / 255 * 80) - 80
-
-        # Convert Mel spectrogram back to power spectrogram
-        loaded_mel_spectrogram = librosa.db_to_power(loaded_mel_spectrogram_db)
-
-        # Inverse Mel spectrogram to audio
-        snippet_reconstructed = librosa.feature.inverse.mel_to_audio(loaded_mel_spectrogram, sr=sr, n_iter=32)
-
-        # Brijesh: Apply post-processing.
-        # Write to the bytes of a temp WAV file. Using scipy.io.wavfile.
-        wav_bytes = io.BytesIO()
-        wavfile.write(wav_bytes, sr, snippet_reconstructed)
-        wav_bytes.seek(0)
-
-        snippet_reconstructed_pydub = pydub.AudioSegment.from_wav(wav_bytes)
-        snippet_reconstructed_pydub = apply_filters(
-            snippet_reconstructed_pydub,
-            compression=False,
-        )
-
-        # Save each file
-        # # Save the reconstructed audio snippet
-        # reconstructed_audio_file = f"{os.path.splitext(spectrogram_file)[0]}.wav"
-        # # reconstructed_audio_path = os.path.join(target_folder, reconstructed_audio_file)
-        # reconstructed_audio_path = os.path.join('Data/Reconstructed_Audio', os.path.split(reconstructed_audio_file)[1])
-        # # Raj implementation to save audio. Use soundfile module to write audio
-        # # sf.write(reconstructed_audio_path, snippet_reconstructed, sr)
-        #
-        # # Brijesh implementation to save audio.
-        # sf.write(reconstructed_audio_path, snippet_reconstructed_pydub.get_array_of_samples(), sr)
-        #
-        # print(f"Saved reconstructed audio snippet to: {reconstructed_audio_path}")
+    for spectrogram_file in glob.glob(os.path.join(source_folder,"*.png")):
+        snippet_reconstructed_pydub = image_to_audio(spectrogram_file, sr=sr, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels)
 
         # Add to list for stitching
         audio_segments.append(snippet_reconstructed_pydub)
@@ -68,10 +77,8 @@ def reconstruct_audio_from_spectrograms(source_folder, target_folder, sr=44100, 
 
     # Save the reconstructed audio snippet
     reconstructed_audio_file = f"{os.path.split(os.path.splitext(spectrogram_file)[0])[1][:-2]}.wav"
-    # reconstructed_audio_path = os.path.join(target_folder, reconstructed_audio_file)
-    reconstructed_audio_path = os.path.join('Data/Reconstructed_Audio', reconstructed_audio_file)
+    reconstructed_audio_path = os.path.join(target_folder, reconstructed_audio_file)
     sf.write(reconstructed_audio_path, combined_segment.get_array_of_samples(), sr)
-
 
 def apply_filters(segment: pydub.AudioSegment, compression: bool = False) -> pydub.AudioSegment:
     """

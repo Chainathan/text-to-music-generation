@@ -16,3 +16,4 @@ librosa~=0.10.1
 wandb
 git+https://github.com/huggingface/diffusers
 pillow==9.5.0
+git+https://github.com/Chainathan/riffusion-basic-256px.git
