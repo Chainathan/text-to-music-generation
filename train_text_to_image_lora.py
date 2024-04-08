@@ -875,8 +875,13 @@ def main():
                                 logger.info(f"removing checkpoints: {', '.join(removing_checkpoints)}")
 
                                 for removing_checkpoint in removing_checkpoints:
+                                    checkpoint_folder = removing_checkpoint
                                     removing_checkpoint = os.path.join(args.output_dir, removing_checkpoint)
                                     shutil.rmtree(removing_checkpoint)
+                                    # Remove stale commits from HF.
+                                    if args.push_to_hub:
+                                        api.delete_folder(checkpoint_folder, repo_id=args.hub_model_id,
+                                                          commit_message=f"Pruning stale checkpoint: {checkpoint_folder}")
 
                         save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
                         accelerator.save_state(save_path)

@@ -59,13 +59,18 @@ def reconstruct_audio_from_spectrograms(source_folder, target_folder, sr=44100, 
         audio_segments.append(snippet_reconstructed_pydub)
         print(f"Processed reconstruction of :{spectrogram_file}")
 
+        # Save the reconstructed audio snippet
+        reconstructed_audio_file = f"{os.path.split(os.path.splitext(spectrogram_file)[0])[1]}.wav"
+        reconstructed_audio_path = os.path.join(target_folder, reconstructed_audio_file)
+        sf.write(reconstructed_audio_path, snippet_reconstructed_pydub.get_array_of_samples(), sr)
+
     # Stitch audio segments
     combined_segment = stitch_segments(audio_segments, crossfade_s=0)
 
-    # Save the reconstructed audio snippet
+    # Save the combined audio snippet
     reconstructed_audio_file = f"{os.path.split(os.path.splitext(spectrogram_file)[0])[1][:-2]}.wav"
     # reconstructed_audio_path = os.path.join(target_folder, reconstructed_audio_file)
-    reconstructed_audio_path = os.path.join('Data/Reconstructed_Audio', reconstructed_audio_file)
+    reconstructed_audio_path = os.path.join(target_folder, reconstructed_audio_file)
     sf.write(reconstructed_audio_path, combined_segment.get_array_of_samples(), sr)
 
 
@@ -116,6 +121,6 @@ def stitch_segments(
 
 if __name__ == "__main__":
     # Example usage
-    source_folder = 'Data/Spectrogram'
-    target_folder = 'Data/Reconstructed_Audio'
+    source_folder = '../temp/Results'
+    target_folder = '../temp/Results/Reconstructed_Audio'
     reconstruct_audio_from_spectrograms(source_folder, target_folder)
