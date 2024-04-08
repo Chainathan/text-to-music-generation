@@ -80,7 +80,8 @@ def save_images(images, target_dir):
     if not os.path.exists(target_dir):
         os.makedirs(target_dir)
     for i, image in enumerate(images):
-        Image.fromarray(image).save(os.path.join(target_dir, f"image_{i}.png"))
+        file_path = os.path.join(target_dir, f"image_{i}.png")
+        image.save(file_path)
         print(f"Saved image_{i}.png to {target_dir}")
         
 

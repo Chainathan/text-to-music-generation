@@ -2,15 +2,13 @@ import typing as T
 import os
 
 import argparse
-from typing import Tuple, List
 
 import torch
 import numpy as np
 from PIL import Image
-from PIL.Image import Image
 
 from accelerate import Accelerator
-from diffusers import StableDiffusionPipeline
+from diffusers import StableDiffusionPipeline, DDIMScheduler
 from pydub import AudioSegment
 
 from riffusion.datatypes import InferenceInput, PromptInput
@@ -34,7 +32,7 @@ def infer_prompts(
         prompt_input_a_denoising: float = 0.5,
         prompt_input_b_seed: int = 42,
         prompt_input_b_denoising: float = 0.5,
-        mask_image: Image.Image = None,
+        mask_image: Image = None,
         save_audio: bool = True,
         save_image: bool = True,
 ) -> tuple[list[Image], list[AudioSegment], AudioSegment] | None:
@@ -69,7 +67,10 @@ def infer_prompts(
         return
 
     seed_path = "seed_images/"
-    init_image = Image.open(f'{os.path.join(seed_path, init_image_name)}.png')
+    if init_image_name is not None:
+        init_image = Image.open(f'{os.path.join(seed_path, init_image_name)}.png')
+    else:
+        init_image = None
 
     image_list = interpolate(
         pipeline=pipeline,
@@ -81,11 +82,11 @@ def infer_prompts(
         mask_image=mask_image,
     )
 
-    target_dir = os.path.join(target_dir, prompt_input_a_text + '_' + prompt_input_b_text)
+    target_dir = os.path.join(target_dir, prompt_input_a_text.split()[0] + '_' + prompt_input_b_text.split()[0])
     if save_image:
-        spectrogram_path = os.path.join(target_dir, 'spectrograms/')
+        spectrogram_path = os.path.join(target_dir, 'Spectrogram/')
         save_images(image_list, spectrogram_path)
-        print(f"Saved spectrograms to: {spectrogram_path}")
+        print(f"Saved all Spectrogram images to: {spectrogram_path}")
 
     audio_segments, combined_audio = reconstruct_audio_from_spectrograms(list_imgs=image_list,
                                                                          save_results=save_audio,
@@ -112,7 +113,7 @@ def generate_image(pipeline: RiffusionPipeline,
     image = pipeline.riffuse(
         inputs,
         init_image=init_image,
-        mask_image=mask_image,
+        mask_image=mask_image
     )
 
     return image
@@ -124,9 +125,9 @@ def interpolate(
         num_inference_steps: int,
         prompt_input_a: PromptInput,
         prompt_input_b: PromptInput,
-        init_image: Image.Image,
-        mask_image: Image.Image = None,
-) -> T.List[Image.Image]:
+        init_image: Image,
+        mask_image: Image = None,
+) -> T.List[Image]:
     """
     Interpolate between two prompts and return the generated images and audio bytes.
     """
@@ -149,30 +150,47 @@ def interpolate(
     return image_list
 
 
-def init_pipeline(lora_weights_path: str = "dis-2k") -> RiffusionPipeline:
+def init_pipeline(lora_weights_path: str = "lewtun-3000") -> RiffusionPipeline:
+    lora_weights_path = os.path.join("checkpoints", lora_weights_path)
     model_id = "runwayml/stable-diffusion-v1-5"
     accelerator = Accelerator()
     pipeline = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(accelerator.device)
     pipeline.load_lora_weights(lora_weights_path)
+    noise_scheduler = DDIMScheduler.from_pretrained(model_id, subfolder="scheduler")
     pipeline = RiffusionPipeline(pipeline.vae,
                                  pipeline.text_encoder,
                                  pipeline.tokenizer,
                                  pipeline.unet,
+                                 # noise_scheduler,
                                  pipeline.scheduler,
                                  pipeline.safety_checker,
                                  pipeline.feature_extractor)
     return pipeline
 
 
+def init_riffusion_pipeline() -> RiffusionPipeline:
+    checkpoint = "riffusion/riffusion-model-v1"
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
+    return RiffusionPipeline.load_checkpoint(checkpoint, device=device)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--lora_weights_path", type=str, default="dis-2k")
-    parser.add_argument("--prompt_input_a_text", type=str, default="Rock")
-    parser.add_argument("--prompt_input_b_text", type=str, default="Rock")
-    parser.add_argument("--target_dir", type=str, default="Results/")
-    parser.add_argument("--num_inference_steps", type=int, default=50)
-    parser.add_argument("--guidance", type=float, default=7.0)
+    cap1 = "low quality, sustained strings melody, soft female vocal, mellow piano melody, sad, soulful, ballad"
+    cap2 = "soft female vocal, soulful"
+
+    parser.add_argument("--prompt_input_a_text", type=str, default=cap2)
+    parser.add_argument("--prompt_input_b_text", type=str, default=cap2)
+    parser.add_argument("--lora_weights_path", type=str, default="musiccaps-3000")
     parser.add_argument("--init_image_name", type=str, default="og_beat")
+    parser.add_argument("--target_dir", type=str, default="Results/")
+    parser.add_argument("--num_inference_steps", type=int, default=100)
+    parser.add_argument("--guidance", type=float, default=7.0)
     parser.add_argument("--prompt_input_a_seed", type=int, default=42)
     parser.add_argument("--prompt_input_a_denoising", type=float, default=0.5)
     parser.add_argument("--prompt_input_b_seed", type=int, default=42)
@@ -184,7 +202,8 @@ if __name__ == "__main__":
     parser.add_argument("--save_image", type=bool, default=True)
     args = parser.parse_args()
 
-    pipeline = init_pipeline(args.lora_weights_path)
+    # pipeline = init_pipeline(args.lora_weights_path)
+    pipeline = init_riffusion_pipeline()
 
     infer_prompts(
         pipeline=pipeline,
