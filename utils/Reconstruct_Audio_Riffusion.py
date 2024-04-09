@@ -9,10 +9,10 @@ from utils.Reconstruct_Audio import stitch_segments
 
 # Riffusion dependencies
 params = SpectrogramParams(
-        min_frequency=0,
-        max_frequency=10000,
-        num_frequencies=256,
-    )
+    min_frequency=0,
+    max_frequency=10000,
+    num_frequencies=512,
+)
 device_type = "cuda" if torch.cuda.is_available() else "cpu"
 converter = SpectrogramImageConverter(params=params, device=device_type)
 
@@ -24,7 +24,7 @@ def reconstruct_audio_from_spectrograms(source_folder, target_folder, sr=44100, 
 
     audio_segments = []
     # Process each spectrogram image in the source folder
-    for spectrogram_file in glob.glob(os.path.join(source_folder,"*.png")):
+    for spectrogram_file in glob.glob(os.path.join(source_folder,"*.jpg")):
         # spectrogram_path = os.path.join(source_folder, spectrogram_file)
         spectrogram_path = spectrogram_file
 

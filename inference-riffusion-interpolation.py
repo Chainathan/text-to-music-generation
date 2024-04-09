@@ -11,7 +11,7 @@ from pydub import AudioSegment
 from riffusion.datatypes import InferenceInput, PromptInput
 from riffusion.riffusion_pipeline import RiffusionPipeline
 from utils.ImageUtils import save_images
-from utils.AudioUtils import reconstruct_audio_from_spectrograms
+from utils.AudioUtilsRiffusion import reconstruct_audio_from_spectrograms, stitch_segments
 
 def infer_prompts(
         pipeline: RiffusionPipeline,
@@ -61,7 +61,7 @@ def infer_prompts(
         print("Enter both prompts to interpolate between them")
         return
 
-    seed_path = "seed_images/"
+    seed_path = "seed_images/riffusion/"
     if init_image_name is not None:
         init_image = Image.open(f'{os.path.join(seed_path, init_image_name)}.png').convert("RGB")
     else:
@@ -110,9 +110,7 @@ def generate_image(pipeline: RiffusionPipeline,
         init_image=init_image,
         mask_image=mask_image
     )
-
     return image
-
 
 def interpolate(
         pipeline: RiffusionPipeline,
@@ -146,7 +144,7 @@ def interpolate(
 
 
 def init_pipeline(lora_weights_path: str = "lewtun-3000") -> RiffusionPipeline:
-    lora_weights_path = os.path.join("temp", lora_weights_path, "pytorch_lora_weights.safetensors")
+    lora_weights_path = os.path.join("checkpoints", lora_weights_path)
     model_id = "runwayml/stable-diffusion-v1-5"
     accelerator = Accelerator()
     pipeline = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(accelerator.device)
@@ -181,15 +179,15 @@ if __name__ == "__main__":
 
     parser.add_argument("--prompt_input_a_text", type=str, default=cap1)
     parser.add_argument("--prompt_input_b_text", type=str, default=cap2)
-    parser.add_argument("--lora_weights_path", type=str, default="musiccaps/checkpoint-4500")
+    parser.add_argument("--lora_weights_path", type=str, default="musiccaps-4500")
     parser.add_argument("--init_image_name", type=str, default="og_beat")
     parser.add_argument("--target_dir", type=str, default="temp/Results")
     parser.add_argument("--num_inference_steps", type=int, default=100)
     parser.add_argument("--guidance", type=float, default=7.5)
     parser.add_argument("--prompt_input_a_seed", type=int, default=42)
-    parser.add_argument("--prompt_input_a_denoising", type=float, default=0.5)
+    parser.add_argument("--prompt_input_a_denoising", type=float, default=1)
     parser.add_argument("--prompt_input_b_seed", type=int, default=42)
-    parser.add_argument("--prompt_input_b_denoising", type=float, default=0.5)
+    parser.add_argument("--prompt_input_b_denoising", type=float, default=1)
     parser.add_argument("--mask_image", type=str, default=None)
     parser.add_argument("--num_interpolation_steps", type=int, default=5)
     parser.add_argument("--alpha_power", type=float, default=1.0)
@@ -197,8 +195,8 @@ if __name__ == "__main__":
     parser.add_argument("--save_image", type=bool, default=True)
     args = parser.parse_args()
 
-    pipeline = init_pipeline(args.lora_weights_path)
-    # pipeline = init_riffusion_pipeline()
+    # pipeline = init_pipeline(args.lora_weights_path)
+    pipeline = init_riffusion_pipeline()
 
     infer_prompts(
         pipeline=pipeline,

@@ -433,7 +433,7 @@ def main():
         transformers.utils.logging.set_verbosity_error()
         diffusers.utils.logging.set_verbosity_error()
 
-    # If passed along, set the training seed now.
+    # If passed along, set the training seed now
     if args.seed is not None:
         set_seed(args.seed)
 
