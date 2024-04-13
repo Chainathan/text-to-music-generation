@@ -1,11 +1,17 @@
 import os
 import torch
+from PIL import Image
 from accelerate import Accelerator
 from diffusers import StableDiffusionPipeline, DDIMScheduler, DDPMScheduler
 import tinytorchutil
+from riffusion.riffusion_pipeline import preprocess_image
+from torchvision.transforms import transforms
+
+device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
+dtype = torch.float16
 
 def generate_images(prompt, model_id, num_images=1, guidance_scale=7.5, inference_steps=50,
-    noise_scheduler=None, seed=0, width=256, height=256):
+    noise_scheduler=None, seed=0, init_image="og_beat", width=256, height=256):
     """
     Generate images from a text prompt using a fine-tuned Stable Diffusion model.
 
@@ -30,21 +36,38 @@ def generate_images(prompt, model_id, num_images=1, guidance_scale=7.5, inferenc
     if model_id.find("riffusion") == -1:
         pipeline.load_lora_weights("temp/musiccaps/checkpoint-4500/pytorch_lora_weights.safetensors")
 
+    # Setup init_image
+    if model_id.find("riffusion") == -1:
+        init_image_path = os.path.join("seed_images", f"{init_image}.png")
+    else:
+        init_image_path = os.path.join("seed_images", "riffusion", f"{init_image}.png")
+
+    # Get seed latent
+    init_image = Image.open(init_image_path).convert("RGB").resize((width, height))
+    if model_id.find("riffusion") == -1:    # Our preprocessing
+        init_image_tensor = transforms.ToTensor()(init_image).to(device=device, dtype=dtype)  # Convert to tensor
+        init_image_tensor = transforms.Normalize(mean=[0.5], std=[0.5])(init_image_tensor).unsqueeze(0)   # Our normalization
+        # init_image_tensor = preprocess_image(init_image).to(device=device, dtype=dtype)
+    else:
+        init_image_tensor = preprocess_image(init_image).to(device=device, dtype=dtype)
+    latents = pipeline.vae.encode(init_image_tensor).latent_dist.sample()
+
     images = []
     for _ in range(num_images):
         # Generate an image from the prompt
         generated = pipeline(prompt, guidance_scale=guidance_scale,
-                             width=width, height=height, num_inference_steps=inference_steps).images[0]
+                             width=width, height=height, num_inference_steps=inference_steps, latents=latents).images[0]
         images.append(generated)
 
     return images
 
 if __name__ == '__main__':
     target_dir = "temp/Results/"
-    prompt = "deep space music"  # Example prompt
+    prompt = "piano funk"  # Example prompt
+    init_image = "agile"
     noise_scheduler = None
-    width = 256
-    height = 256
+    width=256
+    height=256
 
     model_id = "runwayml/stable-diffusion-v1-5"  # Replace with your model's ID or local path
 
@@ -60,7 +83,7 @@ if __name__ == '__main__':
     seed=42
 
     generated_images = generate_images(prompt, model_id=model_id, num_images=1, guidance_scale=7.5,
-           inference_steps = inference_steps, noise_scheduler=noise_scheduler, seed=seed,
+           inference_steps = inference_steps, noise_scheduler=noise_scheduler, seed=seed, init_image=init_image,
            width=width, height=height)
     # Display or save the generated images
     for i, img in enumerate(generated_images):

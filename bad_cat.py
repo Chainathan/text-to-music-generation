@@ -26,10 +26,6 @@ def generate_images(prompt, model_id, num_images=1, guidance_scale=7.5, inferenc
     if noise_scheduler is not None:
         pipeline.scheduler = noise_scheduler
 
-    # Load fine-tuned unet
-    if model_id.find("riffusion") == -1:
-        pipeline.load_lora_weights("temp/musiccaps/checkpoint-4500/pytorch_lora_weights.safetensors")
-
     images = []
     for _ in range(num_images):
         # Generate an image from the prompt
@@ -41,17 +37,12 @@ def generate_images(prompt, model_id, num_images=1, guidance_scale=7.5, inferenc
 
 if __name__ == '__main__':
     target_dir = "temp/Results/"
-    prompt = "deep space music"  # Example prompt
+    prompt = "random cat image"  # Example prompt
     noise_scheduler = None
     width = 256
     height = 256
 
     model_id = "runwayml/stable-diffusion-v1-5"  # Replace with your model's ID or local path
-
-    # # Riffusion model
-    # model_id = "riffusion/riffusion-model-v1"
-    # if model_id.find("riffusion") != -1:
-    #     target_dir = os.path.join(target_dir, "riffusion")
 
     # Get DDIM scheduler
     # noise_scheduler = DDPMScheduler.from_pretrained(model_id, subfolder="scheduler")

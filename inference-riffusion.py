@@ -108,7 +108,8 @@ def generate_image(pipeline: RiffusionPipeline,
     image = pipeline.riffuse(
         inputs,
         init_image=init_image,
-        mask_image=mask_image
+        mask_image=mask_image,
+        use_reweighting=False
     )
 
     return image
